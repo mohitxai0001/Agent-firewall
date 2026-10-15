@@ -179,19 +179,22 @@ async def proxy_chat_completions(
         )
 
     # 4. Proxy to LLM
+    # 4. Proxy to LLM
     try:
         body = await request.json()
-        model = body.get("model", "gemini/gemini-3.1-flash-lite")
-        messages = body.get("messages", [])
+        
+        # Ensure we have a default model if the agent doesn't provide one
+        if "model" not in body:
+            body["model"] = "gemini/gemini-3.1-flash-lite"
+            
         is_stream = body.get("stream", False)
+        messages = body.get("messages", [])
 
-        response = completion(
-            model=model,
-            messages=messages,
-            stream=is_stream
-        )
+        # Pass the ENTIRE body (including tools, temperature, etc.) to LiteLLM
+        response = completion(**body)
 
         if is_stream:
+          
             async def generate_chunks():
                 full_completion_text = ""
                 
