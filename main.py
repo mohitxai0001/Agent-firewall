@@ -1,7 +1,7 @@
 import os
 import secrets
 from fastapi import FastAPI, Request, HTTPException, status, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.security import (
     HTTPBearer,
     HTTPAuthorizationCredentials,
@@ -179,24 +179,47 @@ async def proxy_chat_completions(
         )
 
     # 4. Proxy to LLM
+    # 4. Proxy to LLM (Now with Streaming Support)
     try:
         body = await request.json()
         model = body.get("model", "gemini/gemini-3.1-flash-lite")
         messages = body.get("messages", [])
+        is_stream = body.get("stream", False)
 
         response = completion(
             model=model,
             messages=messages,
+            stream=is_stream
         )
 
-        cost = float(completion_cost(completion_response=response))
-        session_entry.spend += cost
-        session_entry.steps += 1
-        db.commit()
+        if is_stream:
+            # Handle streaming chunks
+            async def generate_chunks():
+                chunks = []
+                for chunk in response:
+                    chunks.append(chunk)
+                    # Yield in OpenAI Server-Sent Events (SSE) format
+                    yield f"data: {chunk.model_dump_json()}\n\n"
+                
+                # Calculate cost from all accumulated chunks after stream ends
+                cost = float(completion_cost(completion_response=chunks))
+                session_entry.spend += cost
+                session_entry.steps += 1
+                db.commit()
+                print(f"[Streaming Finished] Turn {session_entry.steps} | Spend: ${session_entry.spend:.6f}")
+                
+                yield "data: [DONE]\n\n"
 
-        print(f"\n[Project: {project.name} | Session: {session_id}] Turn {session_entry.steps}/{session_entry.max_steps} | Spend: ${session_entry.spend:.6f}")
-
-        return response.model_dump()
+            return StreamingResponse(generate_chunks(), media_type="text/event-stream")
+        
+        else:
+            # Handle standard synchronous response
+            cost = float(completion_cost(completion_response=response))
+            session_entry.spend += cost
+            session_entry.steps += 1
+            db.commit()
+            print(f"\n[Project: {project.name} | Session: {session_id}] Turn {session_entry.steps}/{session_entry.max_steps} | Spend: ${session_entry.spend:.6f}")
+            return response.model_dump()
 
     except HTTPException:
         raise
