@@ -196,20 +196,26 @@ async def proxy_chat_completions(
                 full_completion_text = ""
                 
                 for chunk in response:
-                    # Extract the text fragment from the chunk to build the final string
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     content = delta.get("content") or ""
                     full_completion_text += content
                     
                     yield f"data: {chunk.model_dump_json()}\n\n"
                 
-                # Calculate cost using the raw prompt messages and the full completion text
+                # Calculate final cost
                 cost = float(completion_cost(model=model, prompt=str(messages), completion=full_completion_text))
                 
-                session_entry.spend += cost
-                session_entry.steps += 1
-                db.commit()
-                print(f"[Streaming Finished] Turn {session_entry.steps} | Spend: ${session_entry.spend:.6f}")
+                # Open a fresh DB session for the background commit
+                bg_db = SessionLocal()
+                try:
+                    bg_session = bg_db.query(SessionRecord).filter(SessionRecord.session_id == session_id).first()
+                    if bg_session:
+                        bg_session.spend += cost
+                        bg_session.steps += 1
+                        bg_db.commit()
+                        print(f"[Streaming Finished] Turn {bg_session.steps} | Spend: ${bg_session.spend:.6f}")
+                finally:
+                    bg_db.close()
                 
                 yield "data: [DONE]\n\n"
 
