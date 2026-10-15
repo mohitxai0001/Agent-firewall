@@ -1,21 +1,43 @@
 import os
-from fastapi import FastAPI, Request, HTTPException, status, Depends, Header
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import secrets
+from fastapi import FastAPI, Request, HTTPException, status, Depends
+from fastapi.responses import HTMLResponse
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+    HTTPBasic,
+    HTTPBasicCredentials,
+)
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from litellm import completion, completion_cost
 
 from database import SessionLocal, SessionRecord, Project, ApiKey, generate_api_key, init_db
-from fastapi.responses import HTMLResponse
+
 app = FastAPI(title="Agent Firewall")
 
 # Ensure tables exist
 init_db()
 
-# Your working Gemini key
-#os.environ["GEMINI_API_KEY"]
-
+# Bearer auth for agent proxy calls
 security = HTTPBearer()
+
+# --- Basic Auth Setup for Admin Dashboard ---
+security_basic = HTTPBasic()
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "firewall_secret_2026")
+
+def authenticate_admin(credentials: HTTPBasicCredentials = Depends(security_basic)):
+    is_correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
+    is_correct_password = secrets.compare_digest(credentials.password, ADMIN_PASSWORD)
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
 
 def get_db():
     db = SessionLocal()
@@ -32,7 +54,7 @@ class ProjectCreate(BaseModel):
     max_steps_per_session: int = 3   # Default 3 calls before loop kill
 
 
-# --- Administrative Endpoints (For Developer Dashboard) ---
+# --- Administrative Endpoints ---
 
 @app.post("/v1/projects")
 def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
@@ -59,6 +81,36 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         "budget_limit": project.budget_limit,
         "max_steps_per_session": project.max_steps_per_session
     }
+
+
+@app.get("/v1/projects")
+def list_projects(
+    db: Session = Depends(get_db),
+    admin: str = Depends(authenticate_admin)
+):
+    """List all projects and their active keys (Admin only)"""
+    projects = db.query(Project).all()
+    result = []
+    for p in projects:
+        result.append({
+            "id": p.id,
+            "name": p.name,
+            "budget_limit": p.budget_limit,
+            "max_steps": p.max_steps_per_session,
+            "keys": [k.key for k in p.keys if k.is_active],
+            "total_sessions": len(p.sessions),
+            "total_spend": sum(s.spend for s in p.sessions)
+        })
+    return result
+
+
+@app.get("/v1/sessions")
+def list_sessions(
+    db: Session = Depends(get_db),
+    admin: str = Depends(authenticate_admin)
+):
+    """List session records (Admin only)"""
+    return db.query(SessionRecord).all()
 
 
 # --- Core Proxy with Bearer Auth ---
@@ -152,29 +204,10 @@ async def proxy_chat_completions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/v1/sessions")
-def list_sessions(db: Session = Depends(get_db)):
-    return db.query(SessionRecord).all()
-@app.get("/v1/projects")
-def list_projects(db: Session = Depends(get_db)):
-    """List all projects and their active keys"""
-    projects = db.query(Project).all()
-    result = []
-    for p in projects:
-        result.append({
-            "id": p.id,
-            "name": p.name,
-            "budget_limit": p.budget_limit,
-            "max_steps": p.max_steps_per_session,
-            "keys": [k.key for k in p.keys if k.is_active],
-            "total_sessions": len(p.sessions),
-            "total_spend": sum(s.spend for s in p.sessions)
-        })
-    return result
-
+# --- Public & Admin UI Routes ---
 
 @app.get("/dashboard", response_class=HTMLResponse)
-def get_dashboard():
+def get_dashboard(admin: str = Depends(authenticate_admin)):
     return """
 <!DOCTYPE html>
 <html lang="en">
@@ -320,6 +353,8 @@ def get_dashboard():
 </body>
 </html>
     """
+
+
 @app.get("/", response_class=HTMLResponse)
 def get_landing_page():
     return """
@@ -366,7 +401,7 @@ def get_landing_page():
       <a href="/dashboard" class="px-8 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition shadow-lg shadow-indigo-500/20">
         Start Tracking Free
       </a>
-      <a href="https://github.com/yourusername/agent-firewall" target="_blank" class="px-8 py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg transition border border-slate-700">
+      <a href="https://github.com/mohitxai0001/Agent-firewall" target="_blank" class="px-8 py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-lg transition border border-slate-700">
         View on GitHub
       </a>
     </div>
@@ -387,14 +422,15 @@ from openai import OpenAI
 
 client = OpenAI(
     api_key=<span class="text-emerald-400">"fw-live_your_project_key"</span>,
-    base_url=<span class="text-indigo-400">"https://api.agentfirewall.com/v1"</span>
+    base_url=<span class="text-indigo-400">"https://agent-firewall-v9ft.onrender.com/v1"</span>
 )
 
 <span class="text-slate-500"># Your agent runs normally. If it hits an infinite loop, </span>
 <span class="text-slate-500"># our proxy intercepts it with a 429 before you get billed.</span>
 response = client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Start autonomous swarm"}]
+    model="gemini/gemini-3.1-flash-lite",
+    messages=[{"role": "user", "content": "Start autonomous run"}],
+    extra_headers={"X-Session-ID": "agent-session-1"}
 )</code></pre>
       </div>
     </div>
