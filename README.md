@@ -35,7 +35,7 @@ Agent Firewall sits between your agent and your LLM provider (OpenAI, Google Gem
 
 ### 1. Clone & Install
 ```bash
-git clone [https://github.com/your-username/agent-firewall.git](https://github.com/your-username/agent-firewall.git)
+git clone [https://github.com/mohitxai0001/agent-firewall.git](https://github.com/mohitxai0001/agent-firewall.git)
 cd agent-firewall
 python -m venv venv
 source venv/bin/activate  # On Windows: .\venv\Scripts\activate
