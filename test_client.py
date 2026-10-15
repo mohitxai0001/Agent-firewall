@@ -1,7 +1,7 @@
 import requests
 import time
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = "https://agent-firewall-v9ft.onrender.com"
 
 # 1. Create a Project and get an API key
 print("Step 1: Registering project and generating API Key...")
