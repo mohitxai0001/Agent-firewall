@@ -179,7 +179,6 @@ async def proxy_chat_completions(
         )
 
     # 4. Proxy to LLM
-    # 4. Proxy to LLM (Now with Streaming Support)
     try:
         body = await request.json()
         model = body.get("model", "gemini/gemini-3.1-flash-lite")
@@ -193,16 +192,20 @@ async def proxy_chat_completions(
         )
 
         if is_stream:
-            # Handle streaming chunks
             async def generate_chunks():
-                chunks = []
+                full_completion_text = ""
+                
                 for chunk in response:
-                    chunks.append(chunk)
-                    # Yield in OpenAI Server-Sent Events (SSE) format
+                    # Extract the text fragment from the chunk to build the final string
+                    delta = chunk.get("choices", [{}])[0].get("delta", {})
+                    content = delta.get("content") or ""
+                    full_completion_text += content
+                    
                     yield f"data: {chunk.model_dump_json()}\n\n"
                 
-                # Calculate cost from all accumulated chunks after stream ends
-                cost = float(completion_cost(completion_response=chunks))
+                # Calculate cost using the raw prompt messages and the full completion text
+                cost = float(completion_cost(model=model, prompt=str(messages), completion=full_completion_text))
+                
                 session_entry.spend += cost
                 session_entry.steps += 1
                 db.commit()
@@ -213,7 +216,6 @@ async def proxy_chat_completions(
             return StreamingResponse(generate_chunks(), media_type="text/event-stream")
         
         else:
-            # Handle standard synchronous response
             cost = float(completion_cost(completion_response=response))
             session_entry.spend += cost
             session_entry.steps += 1
