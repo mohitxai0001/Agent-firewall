@@ -1,4 +1,6 @@
 import os
+import json
+import hashlib
 import secrets
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -114,6 +116,51 @@ def list_sessions(
 
 
 # --- Core Proxy with Bearer Auth ---
+def detect_tool_call_loop(messages: list, threshold: int = 3):
+    """
+    Scans the message history in reverse for repeated identical tool calls.
+    Normalizes JSON arguments so whitespace differences don't break the hash.
+    """
+    consecutive_count = 0
+    last_hash = None
+    last_tool_name = None
+    
+    # Extract only assistant turns that actually made tool calls
+    tool_call_messages = [m for m in messages if m.get("role") == "assistant" and m.get("tool_calls")]
+    
+    for msg in reversed(tool_call_messages):
+        try:
+            # Look at the first tool called in this turn
+            tool = msg["tool_calls"][0]["function"]
+            t_name = tool.get("name", "")
+            t_args_str = tool.get("arguments", "{}")
+            
+            # Normalize arguments (sort keys, remove extra whitespace)
+            t_args_dict = json.loads(t_args_str)
+            normalized_args = json.dumps(t_args_dict, sort_keys=True)
+            
+            # Create a deterministic hash of the tool name + arguments
+            current_hash = hashlib.md5(f"{t_name}:{normalized_args}".encode()).hexdigest()
+            
+            if last_hash is None:
+                last_hash = current_hash
+                last_tool_name = t_name
+                consecutive_count = 1
+            elif current_hash == last_hash:
+                consecutive_count += 1
+                if consecutive_count >= threshold:
+                    return {
+                        "tool_name": last_tool_name,
+                        "count": consecutive_count
+                    }
+            else:
+                break  # The sequence of identical calls was broken
+        except Exception:
+            break
+            
+    return None
+
+
 
 @app.post("/v1/chat/completions")
 async def proxy_chat_completions(
@@ -191,7 +238,26 @@ async def proxy_chat_completions(
         messages = body.get("messages", [])
 
         # Pass the ENTIRE body (including tools, temperature, etc.) to LiteLLM
+        # --- NEW: Deterministic Loop Detection ---
+        loop_data = detect_tool_call_loop(messages, threshold=3)
+        if loop_data:
+            session_entry.status = "BLOCKED_TOOL_LOOP"
+            db.commit()
+            print(f"[Loop Intercepted] Tool '{loop_data['tool_name']}' repeated {loop_data['count']} times.")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "Agent Firewall Circuit Breaker: Repeated Tool Call Loop Detected.",
+                    "incident": f"Tool '{loop_data['tool_name']}' was called {loop_data['count']} times consecutively with identical arguments.",
+                    "action_required": "Review tool execution logic or adjust loop threshold.",
+                    "session_id": session_id
+                }
+            )
+
+        # Pass the ENTIRE body to LiteLLM
         response = completion(**body)
+        
+        
 
         if is_stream:
           
