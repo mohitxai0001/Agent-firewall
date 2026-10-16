@@ -325,7 +325,7 @@ def get_dashboard(admin: str = Depends(authenticate_admin)):
         <h1 class="text-3xl font-bold tracking-tight text-white flex items-center gap-2">
           🛡️ Agent Firewall
         </h1>
-        <p class="text-slate-400 text-sm mt-1">Autonomous Agent Cost Control & Loop Prevention</p>
+        <p class="text-slate-400 text-sm mt-1">Autonomous Agent Runtime Protection</p>
       </div>
       <button onclick="fetchData()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-semibold transition">
         Refresh Metrics
@@ -333,63 +333,89 @@ def get_dashboard(admin: str = Depends(authenticate_admin)):
     </header>
 
     <!-- Top KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
         <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Tracked Projects</p>
         <p id="stat-projects" class="text-3xl font-bold text-white mt-2">-</p>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Total Sessions Intercepted</p>
+        <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Total Sessions</p>
         <p id="stat-sessions" class="text-3xl font-bold text-white mt-2">-</p>
       </div>
       <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
-        <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Total Spend Tracked</p>
-        <p id="stat-spend" class="text-3xl font-bold text-emerald-400 mt-2">$0.000000</p>
+        <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Interventions</p>
+        <p id="stat-blocks" class="text-3xl font-bold text-rose-500 mt-2">-</p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 p-5 rounded-xl">
+        <p class="text-slate-400 text-xs uppercase tracking-wider font-semibold">Total Spend</p>
+        <p id="stat-spend" class="text-3xl font-bold text-emerald-400 mt-2">$0.0000</p>
       </div>
     </div>
 
-    <!-- Active Projects & Keys -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
-      <h2 class="text-lg font-semibold text-white mb-4">Registered Projects & API Keys</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
-            <tr>
-              <th class="py-3 px-4">Project Name</th>
-              <th class="py-3 px-4">Budget Cap</th>
-              <th class="py-3 px-4">Max Steps</th>
-              <th class="py-3 px-4">Active Key</th>
-              <th class="py-3 px-4">Total Spend</th>
-            </tr>
-          </thead>
-          <tbody id="projects-table" class="divide-y divide-slate-800">
-            <tr><td colspan="5" class="py-4 text-center text-slate-500">Loading projects...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <!-- Layout Grid for Tables -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      
+      <!-- Left Column (Projects & Sessions) -->
+      <div class="lg:col-span-2 space-y-8">
+        
+        <!-- Live Agent Sessions -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <h2 class="text-lg font-semibold text-white mb-4">Live Agent Runs</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="py-3 px-4">Run ID</th>
+                  <th class="py-3 px-4">Steps</th>
+                  <th class="py-3 px-4">Spend</th>
+                  <th class="py-3 px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="sessions-table" class="divide-y divide-slate-800">
+                <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading runs...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-    <!-- Live Agent Sessions -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
-      <h2 class="text-lg font-semibold text-white mb-4">Recent Agent Sessions & Firewall Status</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
-            <tr>
-              <th class="py-3 px-4">Session ID</th>
-              <th class="py-3 px-4">Steps Taken</th>
-              <th class="py-3 px-4">Live Spend</th>
-              <th class="py-3 px-4">Status</th>
-              <th class="py-3 px-4">Last Active</th>
-            </tr>
-          </thead>
-          <tbody id="sessions-table" class="divide-y divide-slate-800">
-            <tr><td colspan="5" class="py-4 text-center text-slate-500">Loading sessions...</td></tr>
-          </tbody>
-        </table>
+        <!-- Active Projects -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+          <h2 class="text-lg font-semibold text-white mb-4">Project Policies</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+              <thead class="text-xs uppercase bg-slate-800/60 text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="py-3 px-4">Project</th>
+                  <th class="py-3 px-4">Budget Cap</th>
+                  <th class="py-3 px-4">Max Steps</th>
+                  <th class="py-3 px-4">Total Spend</th>
+                </tr>
+              </thead>
+              <tbody id="projects-table" class="divide-y divide-slate-800">
+                <tr><td colspan="4" class="py-4 text-center text-slate-500">Loading projects...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
-    </div>
 
+      <!-- Right Column (Intervention Feed) -->
+      <div class="bg-slate-900 border border-rose-900/50 rounded-xl p-6 relative overflow-hidden">
+        <!-- Background subtle glow -->
+        <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 to-amber-500"></div>
+        
+        <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          Incident Log
+        </h2>
+        
+        <div id="incidents-feed" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+          <!-- Incidents will be injected here -->
+          <p class="text-sm text-slate-500 text-center mt-10">No interventions yet.</p>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <script>
@@ -402,25 +428,28 @@ def get_dashboard(admin: str = Depends(authenticate_admin)):
         const projects = await projRes.json();
         const sessions = await sessRes.json();
 
-        // Update stats
+        // 1. Update KPI Stats
         document.getElementById('stat-projects').innerText = projects.length;
         document.getElementById('stat-sessions').innerText = sessions.length;
+        
         const totalSpend = sessions.reduce((acc, s) => acc + (s.spend || 0), 0);
-        document.getElementById('stat-spend').innerText = '$' + totalSpend.toFixed(6);
+        document.getElementById('stat-spend').innerText = '$' + totalSpend.toFixed(4);
 
-        // Populate Projects Table
+        const blockedSessions = sessions.filter(s => s.status && s.status.includes('BLOCKED'));
+        document.getElementById('stat-blocks').innerText = blockedSessions.length;
+
+        // 2. Populate Projects Table
         const projBody = document.getElementById('projects-table');
         projBody.innerHTML = projects.map(p => `
           <tr class="hover:bg-slate-800/30">
             <td class="py-3 px-4 font-medium text-white">${p.name}</td>
             <td class="py-3 px-4">$${p.budget_limit.toFixed(4)}</td>
             <td class="py-3 px-4">${p.max_steps}</td>
-            <td class="py-3 px-4 font-mono text-xs text-indigo-400">${p.keys[0] || 'No Key'}</td>
-            <td class="py-3 px-4 text-emerald-400 font-mono">$${(p.total_spend || 0).toFixed(6)}</td>
+            <td class="py-3 px-4 text-emerald-400 font-mono">$${(p.total_spend || 0).toFixed(4)}</td>
           </tr>
         `).join('');
 
-        // Populate Sessions Table
+        // 3. Populate Live Sessions Table
         const sessBody = document.getElementById('sessions-table');
         sessBody.innerHTML = sessions.map(s => {
           let badgeClass = "bg-emerald-950 text-emerald-400 border border-emerald-800";
@@ -429,7 +458,7 @@ def get_dashboard(admin: str = Depends(authenticate_admin)):
           }
           return `
             <tr class="hover:bg-slate-800/30">
-              <td class="py-3 px-4 font-mono text-xs text-slate-200">${s.session_id}</td>
+              <td class="py-3 px-4 font-mono text-xs text-slate-200">${s.session_id.substring(0,18)}...</td>
               <td class="py-3 px-4">${s.steps} / ${s.max_steps}</td>
               <td class="py-3 px-4 font-mono text-emerald-400">$${s.spend.toFixed(6)}</td>
               <td class="py-3 px-4">
@@ -437,10 +466,51 @@ def get_dashboard(admin: str = Depends(authenticate_admin)):
                   ${s.status}
                 </span>
               </td>
-              <td class="py-3 px-4 text-xs text-slate-400">${new Date(s.updated_at).toLocaleTimeString()}</td>
             </tr>
           `;
         }).join('');
+
+        // 4. Populate Intervention Log (Right Panel)
+        const incidentsFeed = document.getElementById('incidents-feed');
+        if (blockedSessions.length === 0) {
+            incidentsFeed.innerHTML = '<p class="text-sm text-slate-500 text-center mt-10">No interventions yet.</p>';
+        } else {
+            // Sort to show newest first (assuming higher ID = newer)
+            const sortedBlocks = blockedSessions.sort((a, b) => b.id - a.id);
+            incidentsFeed.innerHTML = sortedBlocks.map(s => {
+                
+                // Determine icon and description based on block type
+                let icon = '🛑';
+                let desc = 'Execution halted by firewall policy.';
+                
+                if (s.status === 'BLOCKED_TOOL_LOOP') {
+                    icon = '🔄';
+                    desc = 'Runaway tool execution loop detected. Agent called identical tool arguments repeatedly.';
+                } else if (s.status === 'BLOCKED_BUDGET') {
+                    icon = '💸';
+                    desc = `Session exceeded strict budget cap of $${s.budget.toFixed(4)}.`;
+                } else if (s.status === 'BLOCKED_LOOPS') {
+                    icon = '🚧';
+                    desc = `Agent exceeded maximum allowed execution steps (${s.max_steps}).`;
+                }
+
+                return `
+                <div class="p-4 bg-slate-950 border border-slate-800 rounded-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-mono text-rose-400 bg-rose-950/50 px-2 py-1 rounded border border-rose-900">${s.status}</span>
+                        <span class="text-xs text-slate-500">${new Date(s.updated_at).toLocaleTimeString()}</span>
+                    </div>
+                    <p class="text-sm text-slate-300 leading-relaxed">
+                        ${icon} ${desc}
+                    </p>
+                    <div class="mt-3 pt-3 border-t border-slate-800 flex justify-between text-xs text-slate-400">
+                        <span class="font-mono">ID: ${s.session_id.substring(0, 12)}...</span>
+                        <span>Spend at kill: $${s.spend.toFixed(4)}</span>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
 
       } catch (err) {
         console.error("Dashboard fetch error:", err);
@@ -452,7 +522,7 @@ def get_dashboard(admin: str = Depends(authenticate_admin)):
   </script>
 </body>
 </html>
-    """
+"""
 
 
 @app.get("/", response_class=HTMLResponse)
