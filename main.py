@@ -68,7 +68,7 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
     project = Project(
         name=data.name,
         budget_limit=data.budget_limit,
-        max_steps_per_session=data.max_steps_per_session
+        max_steps=data.max_steps
     )
     db.add(project)
     db.commit()
