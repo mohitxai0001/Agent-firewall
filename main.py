@@ -2,6 +2,7 @@ import os
 import json
 import hashlib
 import secrets
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, status, Depends
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.security import (
@@ -16,10 +17,13 @@ from litellm import completion, completion_cost
 
 from database import SessionLocal, SessionRecord, Project, ApiKey, generate_api_key, init_db
 
-app = FastAPI(title="Agent Firewall")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initializes tables in Supabase Postgres cleanly on startup
+    init_db()
+    yield
 
-# Ensure tables exist
-init_db()
+app = FastAPI(title="Agent Firewall", lifespan=lifespan)
 
 # Bearer auth for agent proxy calls
 security = HTTPBearer()
