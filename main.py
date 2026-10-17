@@ -85,7 +85,7 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         "project_name": project.name,
         "api_key": raw_key,
         "budget_limit": project.budget_limit,
-        "max_steps_per_session": project.max_steps_per_session
+        "max_steps_per_session": project.max_steps
     }
 
 
@@ -102,7 +102,7 @@ def list_projects(
             "id": p.id,
             "name": p.name,
             "budget_limit": p.budget_limit,
-            "max_steps": p.max_steps_per_session,
+            "max_steps": p.max_steps,
             "keys": [k.key for k in p.keys if k.is_active],
             "total_sessions": len(p.sessions),
             "total_spend": sum(s.spend for s in p.sessions)
@@ -196,7 +196,7 @@ async def proxy_chat_completions(
             session_id=session_id,
             project_id=project.id,
             budget=project.budget_limit,
-            max_steps=project.max_steps_per_session
+            max_steps=project.max_steps  # <--- FIXED THIS LINE
         )
         db.add(session_entry)
         db.commit()
@@ -229,7 +229,6 @@ async def proxy_chat_completions(
             }
         )
 
-    # 4. Proxy to LLM
     # 4. Proxy to LLM
     try:
         body = await request.json()
